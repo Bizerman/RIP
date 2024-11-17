@@ -3,8 +3,8 @@ from django.db import connection
 from django.shortcuts import render, redirect
 from django.utils import timezone
 
-from bmstu.gateway.models import Gateway_el, gateway_element_and_mission
-from bmstu.gateway.models import Gateway_mission
+from gateway.models import Gateway_el, gateway_element_and_mission
+from gateway.models import Gateway_mission
 from django.contrib.auth.models import User
 def gateway_products_page_render(request):
     gateway_mission = get_draft_mission()
@@ -18,10 +18,10 @@ def gateway_products_page_render(request):
         product for product in Gateway_el.objects.all()
         if search_gateway_el.lower() in product.title.lower()
         ]
-    return render(request, 'gateway_products.html', {'data' : {'gateway_el' : filtered_gateway_el, 'mission' : gateway_mission, 'quantity':el_quantity,'search':search_gateway_el}})
+    return render(request, 'gateway_products.html', {'data' : {'gateway_el' : filtered_gateway_el, 'mission' : gateway_mission, 'quantity':el_quantity, 'search':search_gateway_el}})
 def gateway_product_page_render(request,id):
     element = next((item for item in Gateway_el.objects.all() if item.id == id), None)
-    return render(request, 'gateway_product.html',{'product': element})
+    return render(request, 'gateway_product.html', {'product': element})
 def mission_page_render(request, id):
     if not Gateway_mission.objects.filter(pk=id).exists():
         return render(request,"404.html")

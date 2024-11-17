@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'bmstu.gateway'
+    'gateway'
 ]
 
 MIDDLEWARE = [
@@ -54,7 +54,7 @@ ROOT_URLCONF = 'bmstu.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'RIP_lab1/templates']
+        'DIRS': [BASE_DIR / 'gateway/templates']
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -120,9 +120,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = '/RIP_lab1/static/'
+STATIC_URL = 'gateway/static/'
 STATICFILES_DIRS = [
-    BASE_DIR / 'RIP_lab1/static',
+    BASE_DIR / 'gateway/static',
 ]
 
 # Default primary key field type

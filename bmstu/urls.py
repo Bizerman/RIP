@@ -16,14 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from RIP_lab1 import views
-
+from gateway import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.gateway_products_page_render, name='gateway_products_url'),
     path('gateway_element/<int:id>/', views.gateway_product_page_render, name='gateway_el_url'),
     path('gateway_mission/<int:id>/', views.mission_page_render, name='gateway_mission_url'),
-    path('gateway_mission/<int:id>/delete/',views.del_mission,name="delete_mission"),
+    path('gateway_mission/<int:id>/delete/', views.del_mission, name="delete_mission"),
     path('gateway_el/<int:el_id>/add_to_mission/', views.add_to_mission, name='el_add_to_mission')
 ]
