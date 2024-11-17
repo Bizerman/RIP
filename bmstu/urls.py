@@ -15,14 +15,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
 from gateway import views
+
+router = DefaultRouter()
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.gateway_products_page_render, name='gateway_products_url'),
-    path('gateway_element/<int:id>/', views.gateway_product_page_render, name='gateway_el_url'),
-    path('gateway_mission/<int:id>/', views.mission_page_render, name='gateway_mission_url'),
-    path('gateway_mission/<int:id>/delete/', views.del_mission, name="delete_mission"),
-    path('gateway_el/<int:el_id>/add_to_mission/', views.add_to_mission, name='el_add_to_mission')
+    path('', include(router.urls)),
+    path(r'gatewayels_list/', views.GatewayelementsList.as_view(), name='gateway-els-list'),
+    # path('gateway_element/<int:id>/', views.gateway_product_page_render, name='gateway_el_url'),
+    # path('gateway_mission/<int:id>/', views.mission_page_render, name='gateway_mission_url'),
+    # path('gateway_mission/<int:id>/delete/', views.del_mission, name="delete_mission"),
+    # path('gateway_el/<int:el_id>/add_to_mission/', views.add_to_mission, name='el_add_to_mission')
 ]

@@ -4,12 +4,11 @@ from django.utils import timezone
 
 # Create your models here.
 class Gateway_el(models.Model):
-    title = models.CharField(null=True,blank=True,max_length=64)
-    short_description = models.TextField(null=True,blank=True)
-    status = models.BooleanField(null=True, blank=True,default=True)
-    img_url = models.URLField(null=True, blank=True)
-    full_description = models.TextField(null=True,blank=True)
-
+    title = models.CharField(null=True,blank=True,max_length=64,  verbose_name="Название элемента")
+    short_description = models.TextField(null=True,blank=True,  verbose_name="Описание карточки")
+    status = models.BooleanField(null=True, blank=True,default=True,  verbose_name="Статус")
+    img_url = models.URLField(null=True, blank=True,  verbose_name="Изображение элемента")
+    full_description = models.TextField(null=True,blank=True,  verbose_name="Полное описание элемента")
     class Meta:
         verbose_name = "элемент"
         verbose_name_plural = "элементы"
