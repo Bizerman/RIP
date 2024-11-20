@@ -24,10 +24,14 @@ router = DefaultRouter()
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('gatewayels_list/', views.GatewayelementsList.as_view(), name='gateway-els-list'),
+    path('gatewayel/<int:id>/addtomission/', views.GatewayelementstoDraft.as_view(), name='gateway-els-tomission'),
+    path('gatewayel/<int:id>/image/', views.GatewayElementImageUpdate.as_view(), name='gateway-els-image'),
+    path('gatewayel/<int:id>/', views.GatewayelementsDetail.as_view(), name='gateway-el-detail'),
+    path('gatewayel/<int:id>/put/', views.put, name='gateway-el-put'),
+    path('mission/<int:id>/', views.GatewayMissionDetail.as_view(), name='gateway-els-mission'),
+    path('missions/', views.GatewayMissionList.as_view(), name='gateway-els-missions'),
+    path('mission/<int:mission_id>/element/<int:element_id>/',views.GatewayElementMissionDetail.as_view(),name='gateway-el-mission-detail'),
+    path('users/', views.UsersList.as_view(), name='users-list'),
     path('', include(router.urls)),
-    path(r'gatewayels_list/', views.GatewayelementsList.as_view(), name='gateway-els-list'),
-    # path('gateway_element/<int:id>/', views.gateway_product_page_render, name='gateway_el_url'),
-    # path('gateway_mission/<int:id>/', views.mission_page_render, name='gateway_mission_url'),
-    # path('gateway_mission/<int:id>/delete/', views.del_mission, name="delete_mission"),
-    # path('gateway_el/<int:el_id>/add_to_mission/', views.add_to_mission, name='el_add_to_mission')
 ]
