@@ -93,7 +93,7 @@ def gateway_element_img_update(request, id, format=None):
     return Response({"img_url": serialized_data.get('img_url')}, status=status.HTTP_200_OK)
 
 
-class GatewayelementsDetail(APIView):
+class GatewayElementsDetail(APIView):
     model_class = Gateway_el
     serializer_class = GatewayElementSerializer
 
@@ -128,9 +128,9 @@ class GatewayelementsDetail(APIView):
 
 
 @api_view(['Put'])
-def gateway_element_update(self, request, id, format=None):
-    gateway_element = get_object_or_404(self.model_class, id=id)
-    serializer = self.serializer_class(gateway_element, data=request.data, partial=True)
+def gateway_element_update(request, id, format=None):
+    gateway_element = get_object_or_404(Gateway_el, id=id)
+    serializer = GatewayElementSerializer(gateway_element, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
