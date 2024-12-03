@@ -85,7 +85,6 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -127,8 +126,8 @@ STATIC_URL = '/static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-AWS_STORAGE_BUCKET_NAME = 'logo'
-AWS_ACCESS_KEY_ID = 'minio'
-AWS_SECRET_ACCESS_KEY = 'minio124'
+AWS_STORAGE_BUCKET_NAME = 'img-for-rip'
+AWS_ACCESS_KEY_ID = 'bizerman'
+AWS_SECRET_ACCESS_KEY = '3657635Jjba'
 AWS_S3_ENDPOINT_URL = 'localhost:9000'
 MINIO_USE_SSL = False

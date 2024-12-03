@@ -17,18 +17,20 @@ class Gateway_el(models.Model):
         db_table = 'gateway_el'
 class Gateway_mission(models.Model):
     STATUS_CHOICES = (
-        (1,'Введен'),
+        (1, 'Введен'),
         (2, 'В работе'),
         (3, 'Завершен'),
         (4, 'Отклонен'),
         (5, 'Удален'),
     )
-    status = models.CharField(choices=STATUS_CHOICES,default=1,verbose_name="Cтатус")
+    status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name="Cтатус")
     create_datetime = models.DateTimeField(default=timezone.now,verbose_name="Дата создания")
-    creator = models.ForeignKey('AuthUser',null=True,default=1,on_delete=models.PROTECT,verbose_name="Пользователь",related_name='creator')
+    creator = models.ForeignKey('AuthUser',null=True, default=1, on_delete=models.PROTECT,verbose_name="Пользователь",related_name='creator')
     form_datetime = models.DateTimeField(null=True)
     complete_datetime = models.DateTimeField(null=True)
     moderator = models.ForeignKey('AuthUser',on_delete=models.DO_NOTHING,null=True,verbose_name="Модер", related_name='moder')
+    mission_name = models.CharField(null=True, blank=True, verbose_name='Название миссии')
+    plan_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата полета')
     elements = models.ManyToManyField(Gateway_el, through='gateway_element_and_mission', related_name='missions')
     def get_elements(self):
         return [
@@ -43,9 +45,16 @@ class Gateway_mission(models.Model):
 
 
 class gateway_element_and_mission(models.Model):
-    id = models.AutoField(primary_key=True,serialize=True)
+    ELEMENT_CHOICES = (
+        (1, 'Модуль станции'),
+        (2, 'Космический корабль'),
+    )
+
+    id = models.AutoField(primary_key=True, serialize=True)
     mission = models.ForeignKey(Gateway_mission,on_delete=models.DO_NOTHING,related_name='m_id')
     element = models.ForeignKey(Gateway_el,on_delete=models.DO_NOTHING,related_name='el_id')
+    element_type = models.IntegerField(choices=ELEMENT_CHOICES,null=True, blank=True)
+
     class Meta:
         verbose_name = 'м-м'
         verbose_name_plural = verbose_name

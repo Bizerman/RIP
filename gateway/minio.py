@@ -39,3 +39,22 @@ def add_img(new_gateway_el, img):
     new_gateway_el.save()
 
     return {"message": "success", "img_url": result}
+def del_img(gateway_el):
+    client = Minio(
+        endpoint=settings.AWS_S3_ENDPOINT_URL,
+        access_key=settings.AWS_ACCESS_KEY_ID,
+        secret_key=settings.AWS_SECRET_ACCESS_KEY,
+        secure=settings.MINIO_USE_SSL
+    )
+    img_url = gateway_el.img_url
+    if not img_url:
+        return
+    try:
+        bucket_name = "img-for-rip"
+        if not client.bucket_exists(bucket_name):
+            client.make_bucket(bucket_name)
+        object_path = f"images/{gateway_el.title}.png"
+        client.remove_object(bucket_name, object_path)
+    except Exception as e:
+        return {"Ошибка при удалении файла из MinIO:": str(e)}
+
