@@ -28,7 +28,7 @@ class GatewayelementsList(APIView):
     serializer_class = GatewayElementSerializer
     def get(self, request, format=None):
         user1 = user()
-        gateway_elements = self.model_class.objects.filter(user=user1)
+        gateway_elements = self.model_class.objects.filter(creator=user1)
         draft_mission = Gateway_mission.objects.filter(status=1).first()
         if draft_mission is None:
             draft_mission = Gateway_mission.objects.create()
@@ -48,7 +48,7 @@ class GatewayelementsList(APIView):
         serializer = GatewayElementWithoutImg(data=request.data)
         if serializer.is_valid():
             user1 = user()
-            gateway_element = serializer.save(user=user1)
+            gateway_element = serializer.save(creator=user1)
             return Response(GatewayElementWithoutImg(gateway_element).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

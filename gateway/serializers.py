@@ -4,10 +4,10 @@ from gateway.models import Gateway_el, Gateway_mission, gateway_element_and_miss
 
 
 class GatewayElementSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)
+    creator = serializers.StringRelatedField(read_only=True)
     class Meta:
         model = Gateway_el
-        fields = '__all__'
+        fields = ['title','short_description','status','img_url','full_description','creator']
 
 class GatewayElementWithoutImg(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)

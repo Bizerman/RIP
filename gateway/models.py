@@ -9,7 +9,7 @@ class Gateway_el(models.Model):
     status = models.BooleanField(null=True, blank=True,default=True,  verbose_name="Статус")
     img_url = models.URLField(null=True, blank=True,  verbose_name="Изображение элемента")
     full_description = models.TextField(null=True,blank=True,  verbose_name="Полное описание элемента")
-    user = models.ForeignKey('AuthUser', on_delete=models.DO_NOTHING, null=True, blank=False,
+    creator = models.ForeignKey('AuthUser', on_delete=models.DO_NOTHING, null=True, blank=False,
                              verbose_name="Создатель элемента")
     class Meta:
         verbose_name = "элемент"
