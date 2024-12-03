@@ -51,10 +51,10 @@ class GatewayMissionSerializer(serializers.ModelSerializer):
         fields = ['id','mission_name','plan_date', 'status', 'create_datetime', 'form_datetime',
                   'complete_datetime', 'moderator', 'creator','elements']
 
-    def to_representation(self, mission_status):
-        text_mission_status = super().to_representation(mission_status)
-        if mission_status.element_type is not None:
-            text_mission_status['element_type'] = mission_status.get_element_type_display()
+    def to_representation(self, mission):
+        text_mission_status = super().to_representation(mission)
+        if mission.status is not None:
+            text_mission_status['status'] = mission.get_status_display()
         return text_mission_status
 class GatewayMissionAdditionSerializer(serializers.ModelSerializer):
     class Meta:
