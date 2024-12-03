@@ -105,14 +105,6 @@ class GatewayElementsDetail(APIView):
     def put(self, request, id, format=None):
         gateway_element = get_object_or_404(self.model_class, id=id)
         serializer = GatewayElementWithoutImg(gateway_element, data=request.data, partial=True)
-        # if serializer.is_valid():
-        #     serializer.save()
-        # # Изменение фото логотипа
-        # if 'img' in serializer.initial_data:
-        #     img_result = add_img(gateway_element, serializer.initial_data['img'])
-        #     if isinstance(img_result, dict) and 'error' in img_result:
-        #         return Response(img_result, status=status.HTTP_400_BAD_REQUEST)
-
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
