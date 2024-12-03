@@ -17,11 +17,11 @@ class Gateway_el(models.Model):
         db_table = 'gateway_el'
 class Gateway_mission(models.Model):
     STATUS_CHOICES = (
-        (1, 'Введен'),
+        (1, 'Введена'),
         (2, 'В работе'),
-        (3, 'Завершен'),
-        (4, 'Отклонен'),
-        (5, 'Удален'),
+        (3, 'Завершена'),
+        (4, 'Отклонена'),
+        (5, 'Удалена'),
     )
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name="Cтатус")
     create_datetime = models.DateTimeField(default=timezone.now,verbose_name="Дата создания")

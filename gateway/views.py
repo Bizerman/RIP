@@ -216,6 +216,8 @@ class GatewayMissionDetail(APIView):
 
     def put(self, request, id, format=None):
         gateway_mission = get_object_or_404(self.model_class, id=id)
+        if gateway_mission.status not in [1,2]:
+            return Response({'error': 'Миссию уже нельзя изменить!'}, status=status.HTTP_404_NOT_FOUND)
         serializer = GatewayMissionAdditionSerializer(gateway_mission, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -237,13 +239,13 @@ class GatewayMissionDetail(APIView):
 
 
 @api_view(['Put'])
-def gateway_mission_form(request, id, format=None):
+def gateway_mission_form(request, format=None):
     # Получаем заявку по id
-    gateway_mission = get_object_or_404(Gateway_mission, id=id)
+    gateway_mission = Gateway_mission.objects.filter(status=1).first()
+    if not gateway_mission:
+        return Response({'error':'Элементы в миссии отсутствуют'},status=status.HTTP_404_NOT_FOUND)
     serializer = GatewayMissionSerializer(gateway_mission, data=request.data, partial=True)
     # Проверяем обязательные поля
-    if gateway_mission.status != '1':
-        return Response({"error": "Миссия не является черновиком, формирование невозможно."}, status=status.HTTP_400_BAD_REQUEST)
     if gateway_mission.create_datetime > timezone.now():
         return Response({"error": "Неверное время создания миссии."}, status=status.HTTP_400_BAD_REQUEST)
     creator = get_object_or_404(AuthUser, username=gateway_mission.creator.username)
@@ -265,7 +267,7 @@ def gateway_mission_complete(request, id, format=None):
     # Получаем заявку по id
     gateway_mission = get_object_or_404(model_class, id=id)
     serializer = serializer_class(gateway_mission, data=request.data, partial=True)
-    if gateway_mission.status != '2':
+    if gateway_mission.status != 2:
         return Response({"error": "Миссия не сформированна, либо уже одобрена"}, status=status.HTTP_400_BAD_REQUEST)
     # Если меняем статус на завершен или отклонен, устанавливаем модератора и дату завершения
     mission_status = int(serializer.initial_data['status'])
@@ -320,7 +322,7 @@ class GatewayElementMissionDetail(APIView):
 
 @api_view(['POST'])
 def Registration(request):
-    serializer = UserRegistrationSerializer(user(),data=request.data)
+    serializer = UserRegistrationSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()  # Сохраняем пользователя
         return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
