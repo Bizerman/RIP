@@ -6,7 +6,7 @@ from gateway.models import Gateway_el, Gateway_mission, gateway_element_and_miss
 class GatewayElementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gateway_el
-        fields = ['title','short_description','status','img_url','full_description']
+        fields = ['id','title','short_description','status','img_url','full_description']
 
 class GatewayElementWithoutImg(serializers.ModelSerializer):
     class Meta:
@@ -27,17 +27,12 @@ class GatewayElementMissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = gateway_element_and_mission
         fields = ['element_id','mission_id']
-class GatewayElementTypeSerializer(serializers.ModelSerializer):
+class GatewayAdditionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = gateway_element_and_mission
-        fields = ['element_type']  # Добавляем только необходимые поля
+        fields = ['addition']  # Добавляем только необходимые поля
 
-    def to_representation(self, m_m):
-        text_element_type = super().to_representation(m_m)
-        if m_m.element_type is not None:
-            text_element_type['element_type'] = m_m.get_element_type_display()
-        return text_element_type
 class GatewayMissionSerializer(serializers.ModelSerializer):
     elements = GatewayElementMissionSerializer(
         source='mission_elements',
@@ -47,7 +42,7 @@ class GatewayMissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gateway_mission
         fields = ['id','mission_name','plan_date', 'status', 'create_datetime', 'form_datetime',
-                  'complete_datetime', 'moderator', 'creator','elements']
+                  'complete_datetime', 'moderator', 'creator','addition','elements']
 
     def to_representation(self, mission):
         text_mission_status = super().to_representation(mission)

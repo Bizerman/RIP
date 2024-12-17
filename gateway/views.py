@@ -1,3 +1,5 @@
+import random
+
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -10,8 +12,8 @@ from rest_framework.views import APIView
 from gateway.minio import add_img, del_img
 from gateway.models import Gateway_el, AuthUser, Gateway_mission, gateway_element_and_mission
 from gateway.serializers import GatewayElementSerializer, GatewayMissionSerializer, \
-    GatewayElementMissionSerializer, GatewayMissionAdditionSerializer, GatewayElementTypeSerializer, \
-    UserRegistrationSerializer, UserLoginSerializer, GatewayElementWithoutImg
+    GatewayElementMissionSerializer, GatewayMissionAdditionSerializer, \
+    UserRegistrationSerializer, UserLoginSerializer, GatewayElementWithoutImg, GatewayAdditionSerializer
 
 
 def user():
@@ -266,7 +268,7 @@ def gateway_mission_complete(request, id, format=None):
         gateway_mission.status = mission_status
         gateway_mission.moderator = user()
         gateway_mission.complete_datetime = timezone.now()
-        gateway_mission.plan_date = timezone.now() + timezone.timedelta(days=10000)
+        gateway_mission.plan_date = timezone.now() + timezone.timedelta(days=random.randint(365, 10000))
     #     # Вычисляем стоимость и дату доставки при завершении заявки
     if serializer.is_valid():
         serializer.save()
@@ -279,16 +281,15 @@ class GatewayElementMissionDetail(APIView):
     serializer_class = GatewayElementMissionSerializer
 
     def put(self, request, mission_id, element_id, format=None):
-        model_class = gateway_element_and_mission
-        serializer_class = GatewayElementTypeSerializer
-
-        mm_record = get_object_or_404(model_class, mission_id=mission_id, element_id=element_id)
-        mm_record.element_type = request.data['element_type']
-        serializer = serializer_class(mm_record, data=request.data, partial=True)
-
+        mm_record = get_object_or_404(self.model_class, mission_id=mission_id, element_id=element_id)
+        serializer = GatewayAdditionSerializer(mm_record, data=request.data, partial=True)
+        addition = serializer.initial_data['addition']
+        mission = mm_record.mission
+        mission.addition = addition
+        mission.save()
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)  # Возвращает данные с текстовым значением `element_type`
+            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, mission_id,element_id, format=None):

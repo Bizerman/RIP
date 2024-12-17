@@ -1,13 +1,14 @@
 from django.contrib.auth.models import User
 from django.db import models
+from django.dispatch import receiver
 from django.utils import timezone
 
 # Create your models here.
 class Gateway_el(models.Model):
-    title = models.CharField(null=True,blank=True,max_length=64,  verbose_name="Название элемента")
-    short_description = models.TextField(null=True,blank=True,  verbose_name="Описание карточки")
-    status = models.BooleanField(null=True, blank=True,default=True,  verbose_name="Статус")
-    img_url = models.URLField(null=True, blank=True,  verbose_name="Изображение элемента")
+    title = models.CharField(null=False,max_length=64,default='',  verbose_name="Название элемента")
+    short_description = models.TextField(null=False, default='', verbose_name="Описание карточки")
+    status = models.BooleanField(null=False, default=True,  verbose_name="Статус")
+    img_url = models.URLField(null=False, default='', verbose_name="Изображение элемента")
     full_description = models.TextField(null=True,blank=True,  verbose_name="Полное описание элемента")
     class Meta:
         verbose_name = "элемент"
@@ -29,6 +30,7 @@ class Gateway_mission(models.Model):
     moderator = models.ForeignKey('AuthUser',on_delete=models.DO_NOTHING,null=True,verbose_name="Модер", related_name='moder')
     mission_name = models.CharField(null=True, blank=True, verbose_name='Название миссии')
     plan_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата полета')
+    addition = models.CharField(null=True, blank=True,verbose_name='Комментарий')
     elements = models.ManyToManyField(Gateway_el, through='gateway_element_and_mission', related_name='missions')
     def get_elements(self):
         return [
@@ -43,16 +45,11 @@ class Gateway_mission(models.Model):
 
 
 class gateway_element_and_mission(models.Model):
-    ELEMENT_CHOICES = (
-        (1, 'Модуль станции'),
-        (2, 'Космический корабль'),
-    )
 
     id = models.AutoField(primary_key=True, serialize=True)
     mission = models.ForeignKey(Gateway_mission,on_delete=models.DO_NOTHING,related_name='m_id')
     element = models.ForeignKey(Gateway_el,on_delete=models.DO_NOTHING,related_name='el_id')
-    element_type = models.IntegerField(choices=ELEMENT_CHOICES,null=True, blank=True)
-
+    addition = models.CharField(max_length=256, blank=True, null=True, verbose_name="Комментарий")
     class Meta:
         verbose_name = 'м-м'
         verbose_name_plural = verbose_name
