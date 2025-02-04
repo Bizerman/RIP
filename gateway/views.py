@@ -1,21 +1,35 @@
 import random
+import uuid
 
+from django.contrib.auth import authenticate, logout, login
+from django.views.decorators.csrf import csrf_exempt
+from drf_yasg import openapi
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.parsers import JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import viewsets
 
 from gateway.minio import add_img, del_img
 from gateway.models import Gateway_el, AuthUser, Gateway_mission, gateway_element_and_mission
+from gateway.permissions import IsManager, IsAdmin
 from gateway.serializers import GatewayElementSerializer, GatewayMissionSerializer, \
     GatewayElementMissionSerializer, GatewayMissionAdditionSerializer, \
-    UserRegistrationSerializer, UserLoginSerializer, GatewayElementWithoutImg, GatewayAdditionSerializer
+    UserRegistrationSerializer, UserLoginSerializer, GatewayElementWithoutImg, GatewayAdditionSerializer, UserSerializer
+from django.conf import settings
+import redis
+import uuid
 
 
+session_storage = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
 def user():
     try:
         user1 = AuthUser.objects.get(id=1)
@@ -25,9 +39,39 @@ def user():
     return user1
 
 
-class GatewayelementsList(APIView):
+class UserViewSet(viewsets.ModelViewSet):
+    """Класс, описывающий методы работы с пользователями
+    Осуществляет связь с таблицей пользователей в базе данных
+    """
+    queryset = AuthUser.objects.all()
+    serializer_class = UserSerializer
+
+    def get_permissions(self):
+        if self.action in ['create']:
+            permission_classes = [AllowAny]
+        elif self.action in ['list']:
+            permission_classes = [IsAdmin | IsManager]
+        else:
+            permission_classes = [IsAdmin]
+        return [permission() for permission in permission_classes]
+
+
+def method_permission_classes(classes):
+    def decorator(func):
+        def decorated_func(self, *args, **kwargs):
+            self.permission_classes = classes
+            self.check_permissions(self.request)
+            return func(self, *args, **kwargs)
+        return decorated_func
+    return decorator
+
+
+class GatewayElementsList(APIView):
     model_class = Gateway_el
     serializer_class = GatewayElementSerializer
+    parser_classes = [JSONParser]
+    @swagger_auto_schema(responses={200: GatewayElementSerializer(many=True)})
+    @permission_classes([AllowAny])
     def get(self, request, format=None):
         user1 = user()
         gateway_elements = self.model_class.objects.all().order_by('id')
@@ -46,6 +90,8 @@ class GatewayelementsList(APIView):
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(request_body=GatewayElementWithoutImg)
+    @permission_classes([IsManager])
     def post(self, request, format=None):
         serializer = GatewayElementWithoutImg(data=request.data)
         if serializer.is_valid():
@@ -54,7 +100,9 @@ class GatewayelementsList(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(method='post', responses={201: openapi.Response("Элемент добавлен в черновик")})
 @api_view(['Post'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def add_element_to_draft(request, id, format=None):
     user1 = user()
     draft_mission = Gateway_mission.objects.filter(status=1).first()
@@ -75,7 +123,9 @@ def add_element_to_draft(request, id, format=None):
     return Response({"mission_id": draft_mission.id}, status=status.HTTP_201_CREATED)
 
 
+
 @api_view(['Post'])
+@permission_classes([IsManager])
 def gateway_element_img_update(request, id, format=None):
 
     gateway_element = get_object_or_404(Gateway_el, id=id)
@@ -98,21 +148,25 @@ def gateway_element_img_update(request, id, format=None):
 class GatewayElementsDetail(APIView):
     model_class = Gateway_el
     serializer_class = GatewayElementSerializer
+    parser_classes = [JSONParser]
 
+    @swagger_auto_schema(
+        responses={200: GatewayElementSerializer()},
+        operation_summary="Получить элемент шлюза",
+        operation_description="Возвращает элемент шлюза по ID."
+    )
+    @permission_classes([AllowAny])
     def get(self, request, id, format=None):
         gateway_element = get_object_or_404(self.model_class, id=id)
         serializer = self.serializer_class(gateway_element)
         return Response(serializer.data)
 
-    def put(self, request, id, format=None):
-        gateway_element = get_object_or_404(self.model_class, id=id)
-        serializer = GatewayElementWithoutImg(gateway_element, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    @swagger_auto_schema(
+        responses={204: "Элемент удалён"},
+        operation_summary="Удалить элемент",
+        operation_description="Удаляет элемент и связанные данные."
+    )
+    @permission_classes([IsManager])
     def delete(self, request, id, format=None):
         gateway_element = get_object_or_404(self.model_class, id=id)
         del_img(gateway_element)
@@ -121,7 +175,15 @@ class GatewayElementsDetail(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@swagger_auto_schema(
+    method="put",
+    request_body=GatewayElementSerializer,
+    responses={200: GatewayElementSerializer(), 400: "Ошибка валидации"},
+    operation_summary="Обновить элемент",
+    operation_description="Обновляет данные элемента"
+)
 @api_view(['Put'])
+@permission_classes([IsManager])
 def gateway_element_update(request, id, format=None):
     gateway_element = get_object_or_404(Gateway_el, id=id)
     serializer = GatewayElementSerializer(gateway_element, data=request.data, partial=True)
@@ -131,7 +193,14 @@ def gateway_element_update(request, id, format=None):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(
+    method="get",
+    responses={200: GatewayMissionSerializer(many=True)},
+    operation_summary="Получить список миссий",
+    operation_description="Возвращает список миссий с возможностью фильтрации по статусу и дате."
+)
 @api_view(['Get'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def gateway_missions_list(request, format=None):
     gateway_els = Gateway_mission.objects.exclude(status='5').exclude(status='1')
 
@@ -182,7 +251,14 @@ def gateway_missions_list(request, format=None):
 class GatewayMissionDetail(APIView):
     model_class = Gateway_mission
     serializer_class = GatewayMissionSerializer
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
+    @swagger_auto_schema(
+        responses={200: GatewayMissionSerializer()},
+        operation_summary="Получить миссию",
+        operation_description="Возвращает миссию по ID. Также возвращает связанные элементы."
+    )
     def get(self, request, id, format=None):
         gateway_mission = get_object_or_404(self.model_class, id=id)
         gateway_elements = gateway_element_and_mission.objects.filter(mission=gateway_mission)
@@ -207,6 +283,12 @@ class GatewayMissionDetail(APIView):
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(
+        request_body=GatewayMissionAdditionSerializer,
+        responses={200: GatewayMissionAdditionSerializer()},
+        operation_summary="Обновить миссию шлюза",
+        operation_description="Обновляет данные миссии. Доступно только для статусов 1 и 2."
+    )
     def put(self, request, id, format=None):
         gateway_mission = get_object_or_404(self.model_class, id=id)
         if gateway_mission.status not in [1,2]:
@@ -217,6 +299,11 @@ class GatewayMissionDetail(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        responses={204: "Миссия удалена"},
+        operation_summary="Удалить миссию",
+        operation_description="Помечает миссию удаленной, если она не является черновиком."
+    )
     def delete(self, request, id, format=None):
         gateway_mission = get_object_or_404(self.model_class, id=id)
         if gateway_mission.status == 1:  # Статус 1 = Черновик
@@ -231,7 +318,13 @@ class GatewayMissionDetail(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@swagger_auto_schema(
+    method="put",
+    operation_summary="Сформировать миссию",
+    operation_description="Переводит миссию в статус 2, проверяет данные."
+)
 @api_view(['Put'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def gateway_mission_form(request, format=None):
     # Получаем заявку по id
     gateway_mission = Gateway_mission.objects.filter(status=1).first()
@@ -252,7 +345,15 @@ def gateway_mission_form(request, format=None):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(
+    method="put",
+    request_body=GatewayMissionSerializer,
+    responses={200: GatewayMissionSerializer()},
+    operation_summary="Завершить миссию",
+    operation_description="Меняет статус миссии на завершен или отклонен. Устанавливает модератора."
+)
 @api_view(['put'])
+@permission_classes([IsManager])
 def gateway_mission_complete(request, id, format=None):
     model_class = Gateway_mission
     serializer_class = GatewayMissionSerializer
@@ -279,7 +380,18 @@ def gateway_mission_complete(request, id, format=None):
 class GatewayElementMissionDetail(APIView):
     model_class = gateway_element_and_mission
     serializer_class = GatewayElementMissionSerializer
-
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    @swagger_auto_schema(
+        operation_description="Обновление элемента в м-м",
+        request_body=GatewayAdditionSerializer,
+        responses={
+            200: openapi.Response(description="м-м успешно обновлен", schema=GatewayElementMissionSerializer),
+            400: openapi.Response(description="Неверный запрос (Некорректные данные)"),
+            404: openapi.Response(description="Не найдено (Элемент не найден в заявке)")
+        }
+    )
     def put(self, request, mission_id, element_id, format=None):
         mm_record = get_object_or_404(self.model_class, mission_id=mission_id, element_id=element_id)
         serializer = GatewayAdditionSerializer(mm_record, data=request.data, partial=True)
@@ -292,6 +404,18 @@ class GatewayElementMissionDetail(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Удаление элемента из заявки",
+        responses={
+            200: openapi.Response(description="Элемент успешно удалён",
+                                  schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+                                      'message': openapi.Schema(type=openapi.TYPE_STRING),
+                                      'mission_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                      'element_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                  })),
+            404: openapi.Response(description="Не найдено (Элемент не найден в заявке)"),
+        }
+    )
     def delete(self, request, mission_id,element_id, format=None):
         mm_record = gateway_element_and_mission.objects.filter(
             mission_id=mission_id,
@@ -312,16 +436,29 @@ class GatewayElementMissionDetail(APIView):
         )
 
 
+@swagger_auto_schema(
+    method='post',
+    request_body=UserRegistrationSerializer,
+    responses={201: openapi.Response("Пользователь зарегистрирован")}
+)
 @api_view(['POST'])
-def Registration(request):
+@permission_classes([AllowAny])
+@authentication_classes([])
+def register(request):
     serializer = UserRegistrationSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()  # Сохраняем пользователя
+        serializer.save()
         return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(
+    method='put',
+    request_body=UserRegistrationSerializer,
+    responses={201: openapi.Response("Пользователь изменил профиль")}
+)
 @api_view(['Put'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def ChangeProfile(request, id):
     user = get_object_or_404(AuthUser, id=id)
     serializer = UserRegistrationSerializer(user, data=request.data, partial=True)
@@ -330,22 +467,45 @@ def ChangeProfile(request, id):
         serializer.save()
         return Response({"message": "Профиль успешно изменен"})
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=UserLoginSerializer,
+    responses={200: openapi.Response("Пользователь авторизован")}
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+@csrf_exempt
+def login_view(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
+
+    # Аутентификация пользователя
+    user = authenticate(request, email=email, password=password)
+
+    if user is not None:
+        # Генерация случайного ключа с преобразованием UUID в строку
+        random_key = str(uuid.uuid4())
+        session_storage.set(random_key, email)
+
+        response = Response({"message": "Пользователь успешно вошел в систему."}, status=status.HTTP_200_OK)
+        response.set_cookie("session_id", random_key)
+
+        login(request, user)
+        return response
+
+    return Response({"message": "Неверные данные"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='post',
+    responses={200: openapi.Response("Вы вышли из профиля")}
+)
 @api_view(['Post'])
-def Authentication(request):
-    serializer = UserLoginSerializer(AuthUser, data=request.data, partial=True)
-    if serializer.is_valid():
-        user = get_object_or_404(AuthUser, username=request.username)
-        user.last_login = timezone.now()
-        user.is_active = True
-        serializer.save()
-        return Response({"message": "Профиль авторизован"})
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-@api_view(['Post'])
-def Deathtorization(request, id):
-    serializer = UserLoginSerializer(AuthUser, data=request.data, partial=True)
-    if serializer.is_valid():
-        user = get_object_or_404(AuthUser, id=id)
-        user.is_active = False
-        serializer.save()
-        return Response({"message": "Вы вышли из профиля."})
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@csrf_exempt
+@permission_classes([IsAuthenticatedOrReadOnly])
+def logout_view(request):
+    logout(request)
+    return Response({"message": "Вы успешно вышли из профиля"}, status=status.HTTP_200_OK)

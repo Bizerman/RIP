@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-1ty7iey34)s_*g1kii7lk78h8d5js#0fr9s$yn!&#2x391ew2o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -35,9 +35,23 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'gateway'
+    'django.contrib.staticfiles',  #Необходим для  swagger ui's css/js файлов (По умолчанию включен)
+    'drf_yasg',
+    'gateway',
+
 ]
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ]
+}
+AUTH_USER_MODEL = 'gateway.AuthUser'
+
+REDIS_HOST = 'host.docker.internal'
+REDIS_PORT = 6379
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
