@@ -75,4 +75,4 @@ class GatewayMissionSerializer(serializers.ModelSerializer):
 class GatewayMissionAdditionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gateway_mission
-        fields = ['mission_name','plan_date']
+        fields = ['mission_name','addition']

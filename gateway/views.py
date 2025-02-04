@@ -1,7 +1,8 @@
 import random
 import uuid
 
-from django.contrib.auth import authenticate, logout, login
+from django.contrib.auth import authenticate, logout, login, get_user_model
+from django.contrib.sessions.backends.db import SessionStore
 from django.views.decorators.csrf import csrf_exempt
 from drf_yasg import openapi
 from django.contrib.auth.models import User
@@ -13,7 +14,7 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.parsers import JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import viewsets
@@ -37,6 +38,8 @@ def user():
         user1 = AuthUser(id=1, first_name="Иван", last_name="Иванов", password=1234, username="user1")
         user1.save()
     return user1
+
+
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -69,9 +72,13 @@ def method_permission_classes(classes):
 class GatewayElementsList(APIView):
     model_class = Gateway_el
     serializer_class = GatewayElementSerializer
-    parser_classes = [JSONParser]
-    @swagger_auto_schema(responses={200: GatewayElementSerializer(many=True)})
-    @permission_classes([AllowAny])
+
+    @swagger_auto_schema(
+        responses={200: serializer_class(many=True)},
+        operation_summary="Получить список элементов",
+        operation_description="Возвращает список элементов."
+    )
+    @permission_classes([IsAuthenticatedOrReadOnly])
     def get(self, request, format=None):
         user1 = user()
         gateway_elements = self.model_class.objects.all().order_by('id')
@@ -102,9 +109,12 @@ class GatewayElementsList(APIView):
 
 @swagger_auto_schema(method='post', responses={201: openapi.Response("Элемент добавлен в черновик")})
 @api_view(['Post'])
-@permission_classes([IsAuthenticatedOrReadOnly])
+@permission_classes([IsAuthenticated])
 def add_element_to_draft(request, id, format=None):
-    user1 = user()
+    if not request.user:
+        user1 = user()
+    else:
+        user1 = request.user
     draft_mission = Gateway_mission.objects.filter(status=1).first()
     if draft_mission is None:
         draft_mission = Gateway_mission.objects.create()
@@ -148,14 +158,13 @@ def gateway_element_img_update(request, id, format=None):
 class GatewayElementsDetail(APIView):
     model_class = Gateway_el
     serializer_class = GatewayElementSerializer
-    parser_classes = [JSONParser]
 
     @swagger_auto_schema(
         responses={200: GatewayElementSerializer()},
         operation_summary="Получить элемент шлюза",
         operation_description="Возвращает элемент шлюза по ID."
     )
-    @permission_classes([AllowAny])
+    @permission_classes([IsAuthenticatedOrReadOnly])
     def get(self, request, id, format=None):
         gateway_element = get_object_or_404(self.model_class, id=id)
         serializer = self.serializer_class(gateway_element)
@@ -200,9 +209,15 @@ def gateway_element_update(request, id, format=None):
     operation_description="Возвращает список миссий с возможностью фильтрации по статусу и дате."
 )
 @api_view(['Get'])
-@permission_classes([IsAuthenticatedOrReadOnly])
+@permission_classes([IsAuthenticated])
 def gateway_missions_list(request, format=None):
-    gateway_els = Gateway_mission.objects.exclude(status='5').exclude(status='1')
+    user = request.user
+
+    # Администраторы видят все заявки, обычные пользователи — только свои
+    if user.is_staff or user.is_superuser:
+        gateway_els = Gateway_mission.objects.exclude(status='5').exclude(status='1')
+    else:
+        gateway_els = Gateway_mission.objects.filter(creator=user).exclude(status='5').exclude(status='1')
 
     # Фильтрация по статусу
     status_filter = request.query_params.get("status")
@@ -252,7 +267,7 @@ class GatewayMissionDetail(APIView):
     model_class = Gateway_mission
     serializer_class = GatewayMissionSerializer
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         responses={200: GatewayMissionSerializer()},
@@ -324,7 +339,7 @@ class GatewayMissionDetail(APIView):
     operation_description="Переводит миссию в статус 2, проверяет данные."
 )
 @api_view(['Put'])
-@permission_classes([IsAuthenticatedOrReadOnly])
+@permission_classes([IsAuthenticated])
 def gateway_mission_form(request, format=None):
     # Получаем заявку по id
     gateway_mission = Gateway_mission.objects.filter(status=1).first()
@@ -381,7 +396,7 @@ class GatewayElementMissionDetail(APIView):
     model_class = gateway_element_and_mission
     serializer_class = GatewayElementMissionSerializer
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         operation_description="Обновление элемента в м-м",
@@ -442,7 +457,7 @@ class GatewayElementMissionDetail(APIView):
     responses={201: openapi.Response("Пользователь зарегистрирован")}
 )
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticatedOrReadOnly])
 @authentication_classes([])
 def register(request):
     serializer = UserRegistrationSerializer(data=request.data)
@@ -458,7 +473,7 @@ def register(request):
     responses={201: openapi.Response("Пользователь изменил профиль")}
 )
 @api_view(['Put'])
-@permission_classes([IsAuthenticatedOrReadOnly])
+@permission_classes([IsAuthenticated])
 def ChangeProfile(request, id):
     user = get_object_or_404(AuthUser, id=id)
     serializer = UserRegistrationSerializer(user, data=request.data, partial=True)
@@ -505,7 +520,7 @@ def login_view(request):
 )
 @api_view(['Post'])
 @csrf_exempt
-@permission_classes([IsAuthenticatedOrReadOnly])
+@permission_classes([IsAuthenticated])
 def logout_view(request):
     logout(request)
     return Response({"message": "Вы успешно вышли из профиля"}, status=status.HTTP_200_OK)
