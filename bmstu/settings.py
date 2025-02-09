@@ -24,12 +24,14 @@ SECRET_KEY = 'django-insecure-1ty7iey34)s_*g1kii7lk78h8d5js#0fr9s$yn!&#2x391ew2o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["192.168.1.20", "localhost", "127.0.0.1"]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
+    'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -60,6 +62,7 @@ REDIS_PORT = 6379
 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -68,6 +71,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+CORS_ALLOWED_ORIGINS = [
+    "http://192.168.1.20:3000",
+    "http://localhost:3000",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'bmstu.urls'
 
