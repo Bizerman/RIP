@@ -457,7 +457,7 @@ class GatewayElementMissionDetail(APIView):
     responses={201: openapi.Response("Пользователь зарегистрирован")}
 )
 @api_view(['POST'])
-@permission_classes([IsAuthenticatedOrReadOnly])
+@permission_classes([AllowAny])
 @authentication_classes([])
 def register(request):
     serializer = UserRegistrationSerializer(data=request.data)
@@ -491,25 +491,32 @@ def ChangeProfile(request, id):
 )
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@authentication_classes([])
-@csrf_exempt
+@authentication_classes([])  # Для входа не нужна аутентификация
 def login_view(request):
     email = request.data.get("email")
     password = request.data.get("password")
 
-    # Аутентификация пользователя
     user = authenticate(request, email=email, password=password)
-
     if user is not None:
-        # Генерация случайного ключа с преобразованием UUID в строку
-        random_key = str(uuid.uuid4())
-        session_storage.set(random_key, email)
-
-        response = Response({"message": "Пользователь успешно вошел в систему."}, status=status.HTTP_200_OK)
-        response.set_cookie("session_id", random_key)
-
         login(request, user)
-        return response
+
+        # Определяем роль пользователя в зависимости от его прав
+        if user.is_superuser:
+            role = 'admin'  # админ
+        elif user.is_staff:
+            role = 'moderator'  # модератор
+        else:
+            role = 'user'  # обычный пользователь
+
+        return Response({
+            "message": "Пользователь успешно вошел в систему",
+            "user_data": {
+                "username": user.username,
+                "email": user.email,
+                "role": role,
+                "id": user.id,
+            }
+        }, status=status.HTTP_200_OK)
 
     return Response({"message": "Неверные данные"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -518,7 +525,7 @@ def login_view(request):
     method='post',
     responses={200: openapi.Response("Вы вышли из профиля")}
 )
-@api_view(['Post'])
+@api_view(['POST'])
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def logout_view(request):
