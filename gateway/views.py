@@ -277,12 +277,15 @@ class GatewayMissionDetail(APIView):
     def get(self, request, id, format=None):
         gateway_mission = get_object_or_404(self.model_class, id=id)
         gateway_elements = gateway_element_and_mission.objects.filter(mission=gateway_mission)
-        # Сериализуем элементы
-        elements = [GatewayElementSerializer(el.element).data for el in gateway_elements]
+        elements = []
+        for gateway_element in gateway_elements:
+            element_data = GatewayElementSerializer(gateway_element.element).data
+            addition_data = gateway_element.addition
+            element_data['addition'] = addition_data
+            elements.append(element_data)
+
         serializer = self.serializer_class(gateway_mission)
         data = serializer.data
-
-        # Заменяем ID модератора и создателя на их логины
         if data.get("moderator"):
             moderator = AuthUser.objects.filter(id=data["moderator"]).first()
             if moderator:
@@ -296,7 +299,8 @@ class GatewayMissionDetail(APIView):
             "mission": data,
             "elements": elements,
         }
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(response_data, status=status.HTTP_200_OK)
+
 
     @swagger_auto_schema(
         request_body=GatewayMissionAdditionSerializer,
@@ -397,7 +401,7 @@ class GatewayElementMissionDetail(APIView):
     serializer_class = GatewayElementMissionSerializer
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     @swagger_auto_schema(
         operation_description="Обновление элемента в м-м",
         request_body=GatewayAdditionSerializer,
@@ -470,9 +474,9 @@ def register(request):
 @swagger_auto_schema(
     method='put',
     request_body=UserRegistrationSerializer,
-    responses={201: openapi.Response("Пользователь изменил профиль")}
+    responses={200: UserRegistrationSerializer()}
 )
-@api_view(['Put'])
+@api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def ChangeProfile(request, id):
     user = get_object_or_404(AuthUser, id=id)
@@ -480,8 +484,21 @@ def ChangeProfile(request, id):
 
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "Профиль успешно изменен"})
+
+        return Response({
+            "message": "Профиль успешно изменен",
+            "user_data": {
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "password": user.password,
+            }
+        }, status=status.HTTP_200_OK)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @swagger_auto_schema(
@@ -512,6 +529,8 @@ def login_view(request):
             "message": "Пользователь успешно вошел в систему",
             "user_data": {
                 "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
                 "email": user.email,
                 "role": role,
                 "id": user.id,
