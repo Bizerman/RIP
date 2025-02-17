@@ -7,7 +7,7 @@ class GatewayElementSerializer(serializers.ModelSerializer):
     addition = serializers.CharField(required=False, allow_blank=True)
     class Meta:
         model = Gateway_el
-        fields = ['id','title','short_description','status','full_description','addition']
+        fields = ['id','title','short_description','status','full_description','img_url','addition']
 
 
 
