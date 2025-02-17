@@ -73,6 +73,9 @@ class GatewayMissionSerializer(serializers.ModelSerializer):
         many=True,
         read_only=True
     )
+    creator = UserRegistrationSerializer(read_only=True)
+    moderator = UserRegistrationSerializer(read_only=True)
+
     class Meta:
         model = Gateway_mission
         fields = ['id', 'mission_name', 'plan_date', 'status', 'create_datetime', 'form_datetime',
@@ -85,11 +88,6 @@ class GatewayMissionSerializer(serializers.ModelSerializer):
         return text_mission_status
 
 
-    def to_representation(self, mission):
-        text_mission_status = super().to_representation(mission)
-        if mission.status is not None:
-            text_mission_status['status'] = mission.get_status_display()
-        return text_mission_status
 class GatewayMissionAdditionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gateway_mission

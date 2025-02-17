@@ -34,12 +34,10 @@ session_storage = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDI
 def user():
     try:
         user1 = AuthUser.objects.get(id=1)
-    except:
+    except AuthUser.DoesNotExist:  # Лучше указать конкретное исключение
         user1 = AuthUser(id=1, first_name="Иван", last_name="Иванов", password=1234, username="user1")
         user1.save()
     return user1
-
-
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -108,26 +106,31 @@ class GatewayElementsList(APIView):
 
 
 @swagger_auto_schema(method='post', responses={201: openapi.Response("Элемент добавлен в черновик")})
-@api_view(['Post'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def add_element_to_draft(request, id, format=None):
     if not request.user:
         user1 = user()
     else:
         user1 = request.user
-    draft_mission = Gateway_mission.objects.filter(status=1).first()
+
+    # Проверяем, есть ли уже черновик для данного пользователя
+    draft_mission = Gateway_mission.objects.filter(creator=user1, status=1).first()
+
+    # Если черновика нет, создаем новый
     if draft_mission is None:
-        draft_mission = Gateway_mission.objects.create()
-        draft_mission.creator = user1
-        draft_mission.create_datetime = timezone.now()
+        draft_mission = Gateway_mission(creator=user1, create_datetime=timezone.now(), status=1)
         draft_mission.save()
 
+    # Получаем элемент и проверяем, был ли он уже добавлен в черновик
     element = get_object_or_404(Gateway_el, id=id)
     if gateway_element_and_mission.objects.filter(mission=draft_mission, element=element).exists():
         return Response(
             {"error": "Элемент уже добавлен в черновик"},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    # Добавляем связь миссии и элемента
     gateway_element_and_mission.objects.create(mission=draft_mission, element=element)
 
     return Response({"mission_id": draft_mission.id}, status=status.HTTP_201_CREATED)
@@ -208,7 +211,7 @@ def gateway_element_update(request, id, format=None):
     operation_summary="Получить список миссий",
     operation_description="Возвращает список миссий с возможностью фильтрации по статусу и дате."
 )
-@api_view(['Get'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def gateway_missions_list(request, format=None):
     user = request.user
@@ -247,19 +250,6 @@ def gateway_missions_list(request, format=None):
     # Сериализация данных
     serializer = GatewayMissionSerializer(gateway_els, many=True)
     data = serializer.data
-
-    # Замена ID модератора и создателя на их логины
-    for item in data:
-        if item.get("moderator"):
-            moderator = AuthUser.objects.filter(id=item["moderator"]).first()
-            if moderator:
-                item["moderator"] = moderator.username
-
-        if item.get("creator"):
-            creator = AuthUser.objects.filter(id=item["creator"]).first()
-            if creator:
-                item["creator"] = creator.username
-
     return Response(data, status=status.HTTP_200_OK)
 
 
@@ -286,15 +276,6 @@ class GatewayMissionDetail(APIView):
 
         serializer = self.serializer_class(gateway_mission)
         data = serializer.data
-        if data.get("moderator"):
-            moderator = AuthUser.objects.filter(id=data["moderator"]).first()
-            if moderator:
-                data["moderator"] = moderator.username
-
-        if data.get("creator"):
-            creator = AuthUser.objects.filter(id=data["creator"]).first()
-            if creator:
-                data["creator"] = creator.username
         response_data = {
             "mission": data,
             "elements": elements,
