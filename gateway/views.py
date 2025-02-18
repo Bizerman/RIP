@@ -3,12 +3,13 @@ import uuid
 
 from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib.sessions.backends.db import SessionStore
+from django.utils.datetime_safe import datetime
 from django.views.decorators.csrf import csrf_exempt
 from drf_yasg import openapi
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_datetime, parse_date
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
@@ -78,9 +79,12 @@ class GatewayElementsList(APIView):
     )
     @permission_classes([IsAuthenticatedOrReadOnly])
     def get(self, request, format=None):
-        user1 = user()
+        if not request.user:
+            user1 = user()
+        else:
+            user1 = request.user
         gateway_elements = self.model_class.objects.all().order_by('id')
-        draft_mission = Gateway_mission.objects.filter(status=1).first()
+        draft_mission = Gateway_mission.objects.filter(creator=user1, status=1).first()
         if draft_mission is None:
             draft_mission = Gateway_mission.objects.create()
             draft_mission.creator = user1
@@ -113,10 +117,10 @@ def add_element_to_draft(request, id, format=None):
         user1 = user()
     else:
         user1 = request.user
-
+    print(user1)
     # Проверяем, есть ли уже черновик для данного пользователя
     draft_mission = Gateway_mission.objects.filter(creator=user1, status=1).first()
-
+    print(draft_mission)
     # Если черновика нет, создаем новый
     if draft_mission is None:
         draft_mission = Gateway_mission(creator=user1, create_datetime=timezone.now(), status=1)
@@ -205,12 +209,6 @@ def gateway_element_update(request, id, format=None):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@swagger_auto_schema(
-    method="get",
-    responses={200: GatewayMissionSerializer(many=True)},
-    operation_summary="Получить список миссий",
-    operation_description="Возвращает список миссий с возможностью фильтрации по статусу и дате."
-)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def gateway_missions_list(request, format=None):
@@ -234,16 +232,22 @@ def gateway_missions_list(request, format=None):
     if start_date or end_date:
         try:
             if start_date:
-                start_date = parse_datetime(start_date)
-                gateway_els = gateway_els.filter(form_datetime__gte=start_date)
+                # Преобразуем в объект даты и устанавливаем время на 00:00:00
+                start_date = parse_date(start_date)
+                if start_date:
+                    gateway_els = gateway_els.filter(form_datetime__gte=start_date)
 
             if end_date:
-                end_date = parse_datetime(end_date)
-                gateway_els = gateway_els.filter(form_datetime__lte=end_date)
+                # Преобразуем в объект даты и устанавливаем время на 23:59:59
+                end_date = parse_date(end_date)
+                if end_date:
+                    # Преобразуем дату в конец дня
+                    end_date = datetime.combine(end_date, datetime.max.time())
+                    gateway_els = gateway_els.filter(form_datetime__lte=end_date)
 
         except ValueError:
             return Response(
-                {"error": "Неверный формат дат. Используйте формат YYYY-MM-DDTHH:MM:SS."},
+                {"error": "Неверный формат дат. Используйте формат YYYY-MM-DD."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -369,7 +373,8 @@ def gateway_mission_complete(request, id, format=None):
         gateway_mission.status = mission_status
         gateway_mission.moderator = user()
         gateway_mission.complete_datetime = timezone.now()
-        gateway_mission.plan_date = timezone.now() + timezone.timedelta(days=random.randint(365, 10000))
+        if mission_status == 3:
+            gateway_mission.plan_date = timezone.now() + timezone.timedelta(days=random.randint(365, 10000))
     #     # Вычисляем стоимость и дату доставки при завершении заявки
     if serializer.is_valid():
         serializer.save()
@@ -500,11 +505,11 @@ def login_view(request):
 
         # Определяем роль пользователя в зависимости от его прав
         if user.is_superuser:
-            role = 'admin'  # админ
+            role = 'admin'
         elif user.is_staff:
-            role = 'moderator'  # модератор
+            role = 'operator'
         else:
-            role = 'user'  # обычный пользователь
+            role = 'engineer'
 
         return Response({
             "message": "Пользователь успешно вошел в систему",
