@@ -328,8 +328,12 @@ class GatewayMissionDetail(APIView):
 @api_view(['Put'])
 @permission_classes([IsAuthenticated])
 def gateway_mission_form(request, format=None):
+    if not request.user:
+        user1 = user()
+    else:
+        user1 = request.user
     # Получаем заявку по id
-    gateway_mission = Gateway_mission.objects.filter(status=1).first()
+    gateway_mission = Gateway_mission.objects.filter(creator=user1, status=1).first()
     if not gateway_mission:
         return Response({'error':'Элементы в миссии отсутствуют'},status=status.HTTP_404_NOT_FOUND)
     serializer = GatewayMissionSerializer(gateway_mission, data=request.data, partial=True)
