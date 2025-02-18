@@ -117,10 +117,8 @@ def add_element_to_draft(request, id, format=None):
         user1 = user()
     else:
         user1 = request.user
-    print(user1)
     # Проверяем, есть ли уже черновик для данного пользователя
     draft_mission = Gateway_mission.objects.filter(creator=user1, status=1).first()
-    print(draft_mission)
     # Если черновика нет, создаем новый
     if draft_mission is None:
         draft_mission = Gateway_mission(creator=user1, create_datetime=timezone.now(), status=1)
