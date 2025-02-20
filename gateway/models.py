@@ -32,6 +32,7 @@ class Gateway_mission(models.Model):
     mission_name = models.CharField(null=True, blank=True, verbose_name='Название миссии')
     plan_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата полета')
     addition = models.CharField(null=True, blank=True,verbose_name='Комментарий')
+    qr = models.TextField(null=True, blank=True)
     elements = models.ManyToManyField(Gateway_el, through='gateway_element_and_mission', related_name='missions')
     def get_elements(self):
         return [

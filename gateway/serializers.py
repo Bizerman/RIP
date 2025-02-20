@@ -79,7 +79,7 @@ class GatewayMissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gateway_mission
         fields = ['id', 'mission_name', 'plan_date', 'status', 'create_datetime', 'form_datetime',
-                  'complete_datetime', 'moderator', 'creator', 'addition', 'elements']
+                  'complete_datetime', 'moderator', 'creator', 'addition', 'qr', 'elements']
 
     def to_representation(self, mission):
         text_mission_status = super().to_representation(mission)

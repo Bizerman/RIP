@@ -30,6 +30,7 @@ from django.conf import settings
 import redis
 import uuid
 
+from gateway.services.qr_generate import generate_mission_qr
 
 session_storage = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
 def user():
@@ -364,23 +365,28 @@ def gateway_mission_complete(request, id, format=None):
     model_class = Gateway_mission
     serializer_class = GatewayMissionSerializer
 
-    # Получаем заявку по id
     gateway_mission = get_object_or_404(model_class, id=id)
-    serializer = serializer_class(gateway_mission, data=request.data, partial=True)
     if gateway_mission.status != 2:
-        return Response({"error": "Миссия не сформированна, либо уже одобрена"}, status=status.HTTP_400_BAD_REQUEST)
-    # Если меняем статус на завершен или отклонен, устанавливаем модератора и дату завершения
-    mission_status = int(serializer.initial_data['status'])
-    if mission_status in [3, 4]:  # Завершен или Отклонен
+        return Response({"error": "Миссия не сформирована, либо уже одобрена"}, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = serializer_class(gateway_mission, data=request.data, partial=True)
+
+    mission_status = int(serializer.initial_data.get('status', 0))
+    if mission_status in [3, 4]:
         gateway_mission.status = mission_status
-        gateway_mission.moderator = user()
+        gateway_mission.moderator = request.user
         gateway_mission.complete_datetime = timezone.now()
+
         if mission_status == 3:
             gateway_mission.plan_date = timezone.now() + timezone.timedelta(days=random.randint(365, 10000))
-    #     # Вычисляем стоимость и дату доставки при завершении заявки
+            mission_elements = gateway_element_and_mission.objects.filter(mission=gateway_mission)
+            qr_code_base64 = generate_mission_qr(gateway_mission, mission_elements)
+            gateway_mission.qr = qr_code_base64
+
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
