@@ -6,7 +6,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.utils.datetime_safe import datetime
 from django.views.decorators.csrf import csrf_exempt
 from drf_yasg import openapi
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime, parse_date
@@ -15,7 +15,7 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.parsers import JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import viewsets
@@ -78,27 +78,27 @@ class GatewayElementsList(APIView):
         operation_summary="Получить список элементов",
         operation_description="Возвращает список элементов."
     )
-    @permission_classes([IsAuthenticatedOrReadOnly])
+    @permission_classes([AllowAny])
     def get(self, request, format=None):
-        if not request.user:
+        if not request.user or isinstance(request.user, AnonymousUser):
             user1 = user()
         else:
             user1 = request.user
         gateway_elements = self.model_class.objects.all().order_by('id')
         draft_mission = Gateway_mission.objects.filter(creator=user1, status=1).first()
-        if draft_mission is None:
-            draft_mission = Gateway_mission.objects.create()
-            draft_mission.creator = user1
-            draft_mission.create_datetime = timezone.now()
-            draft_mission.save()
-
-        element_count = gateway_element_and_mission.objects.filter(mission=draft_mission).count()
+        if draft_mission is None and user1 is not None:
+            draft_mission = Gateway_mission.objects.create(
+                creator=user1,
+                create_datetime=timezone.now()
+            )
+        element_count = gateway_element_and_mission.objects.filter(
+            mission=draft_mission).count() if draft_mission else 0
         response_data = {
             "elements": self.serializer_class(gateway_elements, many=True).data,
-            "draft_mission_id": draft_mission.id,
+            "draft_mission_id": draft_mission.id if draft_mission else None,
             "draft_element_count": element_count,
         }
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=GatewayElementWithoutImg)
     @permission_classes([IsManager])
@@ -170,7 +170,7 @@ class GatewayElementsDetail(APIView):
         operation_summary="Получить элемент шлюза",
         operation_description="Возвращает элемент шлюза по ID."
     )
-    @permission_classes([IsAuthenticatedOrReadOnly])
+    @permission_classes([AllowAny])
     def get(self, request, id, format=None):
         gateway_element = get_object_or_404(self.model_class, id=id)
         serializer = self.serializer_class(gateway_element)
