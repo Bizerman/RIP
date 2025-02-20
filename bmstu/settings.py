@@ -72,13 +72,13 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 CORS_ALLOWED_ORIGINS = [
-    "http://192.168.1.20:3000",
-    "http://localhost:3000",
+    "https://192.168.1.20:3000",
+    "https://localhost:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:3000',
+    'https://localhost:3000',
 ]
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
